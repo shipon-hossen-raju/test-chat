@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useUser } from "../context/UserContext";
 import { connectSocket, getSocket } from "../lib/socket";
 
@@ -24,8 +24,6 @@ const ChatWindow = ({ receiverId }: { receiverId: string }) => {
     });
 
     socket.on("receiveMessage", (msg: TMessage) => {
-      console.log("Message received: ", msg);
-
       setMessages((prev) => [...prev, msg]);
     });
 
@@ -34,19 +32,20 @@ const ChatWindow = ({ receiverId }: { receiverId: string }) => {
     };
   }, []);
 
-  console.log("messages: ", messages);
+  useEffect(() => {
+    if (!receiverId) return;
+    const socket = getSocket();
+    if (!socket) return;
+    socket.emit("joinRoom", { userId: user?.id, senderId: receiverId });
+    socket.on("joinRoom", (msgs) => {
+      setMessages(msgs);
+    })
+  }, [receiverId]);
 
   const sendMessage = () => {
     const socket = getSocket();
     if (!socket) return;
     socket.emit("sendMessage", { input, to: receiverId });
-    // const newMessage: TMessage = {
-    //   message: input,
-    //   senderId: user?.id,
-    //   receiverId,
-    //   createdAt: new Date().toISOString(),
-    // };
-    // setMessages((prev) => [...prev, newMessage]);
     setInput("");
   };
 
