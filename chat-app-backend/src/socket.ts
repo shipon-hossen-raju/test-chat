@@ -32,7 +32,36 @@ export function setupSocket(io: Server) {
     socket.on("sendMessage", async (data) => {
       const { input, to } = data;
 
-      console.log("Message received: data ", data);
+      if (!input || !to) {
+        console.log("⚠️ Invalid message data");
+        return;
+      }
+
+      // ai chat logic
+      if (to === "ai-chat") {
+
+        const res = await fetch(
+          "https://nfl-sportsradar-api-smt.onrender.com/nfl/query",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            // "x-api-key": process.env.AI_API_KEY,     // uncomment if provider needs it
+            body: JSON.stringify({ query: input }),
+          }
+        );
+
+        const data = await res.json();
+        const aiMessage = await prisma.aiChat.create({
+          data: {
+            userId: userId,
+            query: input,
+            response: data.answer,
+          },
+        });
+        io.emit("receiveMessage", aiMessage);
+        return;
+      }
+
       // find room and check or create roomId for 2 users
       let room = null;
       room = await prisma.room.findFirst({
@@ -86,17 +115,30 @@ export function setupSocket(io: Server) {
         typeof rawUserId === "string" && /^[a-f\d]{24}$/i.test(rawUserId)
           ? rawUserId
           : null;
-      const rawSenderId = data.senderId as string;
-      const senderId =
-        typeof rawSenderId === "string" && /^[a-f\d]{24}$/i.test(rawSenderId)
-          ? rawSenderId
-          : null;
-      
+
       if (!userId) {
         console.log("⚠️ Connection rejected: no userId");
         socket.disconnect();
         return;
       }
+
+      if (data.senderId === "ai-chat") {
+        // Handle AI chat room joining
+        console.log("AI chat room joined");
+        const aiMessages = await prisma.aiChat.findMany({
+          where: {
+            userId: userId,
+          },
+        });
+
+        return socket.emit("joinRoom", aiMessages);
+      }
+
+      const rawSenderId = data.senderId as string;
+      const senderId =
+        typeof rawSenderId === "string" && /^[a-f\d]{24}$/i.test(rawSenderId)
+          ? rawSenderId
+          : null;
 
       if (!senderId) {
         console.log("⚠️ Connection rejected: no senderId");
@@ -141,6 +183,11 @@ export function setupSocket(io: Server) {
 
       socket.emit("joinRoom", messages);
     });
+
+    // AI chat
+    // socket.on("aiJoinRoom", async (data) => {
+    //   console.log(`AI joined room with `, data);
+    // });
 
     socket.on("disconnect", () => {
       console.log(`❌ User ${userId} disconnected`);
