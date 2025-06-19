@@ -16,14 +16,15 @@ export default function Home() {
           <Signup />
         </>
       ) : (
-        <>
+        <div style={{ padding: "24px", textAlign: "center" }}>
           <span style={{ color: "green", fontSize: "20px", padding: "0 10px" }}>
-            {" "}
-            {user.name}{" "}
-          </span>{" "}
+            {user.name}
+          </span>
           <button onClick={() => setUser(null)}>Logout</button>
+          <hr />
+
           <ChatPage />
-        </>
+        </div>
       )}
     </div>
   );
